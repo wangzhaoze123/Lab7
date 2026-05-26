@@ -1,35 +1,16 @@
-name: deploy on push 
-
-on: [push] 
-
-jobs: 
-
-  deploy-app: 
-
-    runs-on: ubuntu-latest 
-
-    steps: 
-
-      - name: check out the code to build server 
-
-        uses: actions/checkout@v4  
-
-      - name: copy file to server 
-
-        uses: appleboy/scp-action@v0.1.7
-
-        with: 
-
-          host: ${{secrets.HOST}} 
-
-          username: ${{secrets.SSH_USER_NAME}} 
-
-          port: ${{secrets.SSH_PORT}} 
-
-          key: ${{secrets.SSH_KEY}} 
-
-          source: "./html/*" 
-
-          target: "/var/www/html" 
-
-          strip_components: 1 
+name: deploy on push
+on: [push]
+jobs:
+  deploy-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{secrets.HOST}}
+          username: ${{secrets.SSH_USER_NAME}}
+          key: ${{secrets.SSH_KEY}}
+          script: |
+            sudo mkdir -p /var/www/html
+            sudo cp -r html/* /var/www/html/
