@@ -4,13 +4,42 @@ jobs:
   deploy-app:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get GitHub Runner IP
+        id: ip
+        run: echo "ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+
+      - name: Whitelist GitHub IP in AWS Security Group
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{secrets.HOST}}
-          username: ${{secrets.SSH_USER_NAME}}
-          key: ${{secrets.SSH_KEY}}
-          script: |
-            sudo mkdir -p /var/www/html
-            sudo cp -r html/* /var/www/html/
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id sg-你的安全组ID \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.ip }}/32
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.SSH_USER_NAME }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "./html/*"
+          target: "/var/www/html"
+          strip_components: 1
+
+      - name: Remove GitHub IP from Security Group
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id sg-你的安全组ID \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.ip }}/32
